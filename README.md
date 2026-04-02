@@ -1,4 +1,4 @@
-# Outils SNUM Miweb
+# Outils Miweb
 
 Outils autonomes pour le traitement des contenus numériques.
 
@@ -60,4 +60,4 @@ Voir le fichier [LICENSE](LICENSE) pour le texte complet.
 
 ## Auteurs
 
-- SNUM Miweb
+- Miweb

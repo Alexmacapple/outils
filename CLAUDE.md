@@ -1,4 +1,4 @@
-# Outils SNUM Miweb
+# Outils Miweb
 
 **Depot** : git@github.com:Alexmacapple/outils.git (public, SSH)
 
