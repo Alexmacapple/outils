@@ -50,4 +50,4 @@ Chaque outil de ce depot doit respecter :
 
 | Fichier | Description | Version |
 |---------|-------------|---------|
-| `extracteur-slides-video.html` | Extraction de diapositives uniques depuis une video | 1.0.0 |
+| `extracteur-slides-video.html` | Extracteur de diapositives video | 1.0.0 |

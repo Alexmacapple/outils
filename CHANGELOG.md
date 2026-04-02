@@ -2,7 +2,7 @@
 
 ## 1.0.0 — 2026-04-02
 
-### Extracteur de slides vidéo (`extracteur-slides-video.html`)
+### Extracteur de diapositives vidéo (`extracteur-slides-video.html`)
 
 **Ajout initial** de l'outil d'extraction de diapositives uniques depuis une vidéo.
 

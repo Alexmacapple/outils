@@ -4,7 +4,7 @@ Outils autonomes pour le traitement des contenus numériques.
 
 ---
 
-## Extracteur de slides vidéo
+## Extracteur de diapositives vidéo
 
 **Fichier** : `extracteur-slides-video.html`
 
