@@ -41,4 +41,3 @@ Voir le fichier [LICENSE](LICENSE) pour le texte complet.
 ## Auteurs
 
 - SNUM Miweb
-- Assisté par Claude Code (Anthropic)
