@@ -4,38 +4,41 @@ Outils autonomes pour le traitement de contenus numériques accessibles.
 
 ---
 
-## Extracteur d'images video
+## Extracteur d'images vidéo
 
 **Fichier** : `video-extractor-local.html`
 
-Extrait automatiquement les diapositives uniques d'une video au format JPG. Traitement 100 % local (Canvas API), aucune donnee envoyee.
+Extrait automatiquement les diapositives uniques d'une vidéo au format JPG. Traitement 100 % local (Canvas API), aucune donnée envoyée.
 
-### Fonctionnalites
+### Fonctionnalités
 
-- Detection automatique des changements de slides par comparaison pixel
-- Parametres ajustables (intervalle, seuil de similarite, qualite JPG)
-- Telechargement individuel ou ZIP
-- Accordeon pedagogique expliquant les parametres
+- Détection automatique des changements de slides par comparaison pixel
+- Paramètres ajustables (intervalle, seuil de similarité, qualité JPG)
+- Téléchargement individuel ou ZIP
+- Accordéon pédagogique expliquant les paramètres
 - Pause/reprise du traitement
 
-### Conformite
+### Conformité
 
-- **DSFR** 1.11.2 (Design System de l'Etat)
-- **RGAA** 4.1.2 (hierarchie titres, landmarks, labels, fieldset, skip links, ARIA)
-- **WCAG** 2.2 AA (contrastes, clavier, lecteur d'ecran, live regions)
-- **Securite** : CSP meta, SRI sur les 4 CDN, construction DOM programmatique (pas de innerHTML), `'use strict'`
+- **DSFR** 1.11.2 (Design System de l'État)
+- **RGAA** 4.1.2 (hiérarchie titres, landmarks, labels, fieldset, skip links, ARIA)
+- **WCAG** 2.2 AA (contrastes, clavier, lecteur d'écran, live regions)
+- **Sécurité** : CSP meta, SRI sur les 4 CDN, construction DOM programmatique (pas de innerHTML), `'use strict'`
 
 ### Utilisation
 
-Ouvrir `video-extractor-local.html` dans un navigateur (Chrome recommande). Fonctionne en `file://` ou servi en HTTP.
+Ouvrir `video-extractor-local.html` dans un navigateur (Chrome recommandé). Fonctionne en `file://` ou servi en HTTP.
 
 ---
 
 ## Licence
 
-Ce projet est distribue sous licence **GNU General Public License v3.0**.
+Ce projet est distribué sous licence **GNU General Public License v3.0**.
 Voir le fichier [LICENSE](LICENSE) pour le texte complet.
 
 ---
 
-SNUM Miweb
+## Auteurs
+
+- SNUM Miweb
+- Assisté par Claude Code (Anthropic)
