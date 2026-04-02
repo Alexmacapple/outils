@@ -1,6 +1,6 @@
 # Outils SNUM Miweb
 
-Outils autonomes pour le traitement de contenus numériques accessibles.
+Outils autonomes pour le traitement des contenus numériques.
 
 ---
 
