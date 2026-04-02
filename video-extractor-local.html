@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="fr" data-fr-scheme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extracteur d'images vidéo - République Française</title>
+
+    <!-- CSP : verrouille les sources autorisées -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' blob: data: https://cdn.jsdelivr.net; media-src 'self' blob:; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
+
+    <!-- PWA Support -->
+    <meta name="theme-color" content="#000091">
+    <meta name="description" content="Outil officiel d'extraction d'images vidéo - SNUM Miweb">
+    
+    <!-- DSFR CSS (SRI) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.11.2/dist/dsfr.min.css" integrity="sha384-VuzA/gYnk/ZqcT5a/ravR88otj71vNPl/h1JPrKoESV33DCX6SeXIxBcRr5qYPRj" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.11.2/dist/utility/icons/icons.min.css" integrity="sha384-UKf0W85KB7U0w/zmH6760XIKn5dSyfePNpOLyPyk0C8sutElQ4N2hU6zjsJ0yihr" crossorigin="anonymous">
+    <style>
+        body {
+            background: var(--background-alt-grey);
+            min-height: 100vh;
+        }
+
+        /* Conteneur principal géré par fr-container + fr-py-4w */
+
+        .upload-area {
+            border: 3px dashed var(--border-plain-grey);
+            border-radius: 0.5rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: var(--background-default-grey);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 2rem;
+        }
+
+        .upload-area:hover {
+            border-color: var(--border-plain-blue-france);
+            background: var(--background-contrast-blue-france);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--border-plain-blue-france);
+            background: var(--background-contrast-blue-france);
+            transform: scale(1.02);
+        }
+
+
+        .video-preview {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .video-preview video {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 0.5rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .controls-section {
+            background: var(--background-default-grey);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: var(--box-shadow);
+        }
+
+        .controls-section .fr-fieldset {
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Contraste amélioré pour les boutons désactivés (4.5:1 sur #e5e5e5) */
+        .fr-btn:disabled,
+        .fr-btn[disabled],
+        .fr-btn:disabled span,
+        .fr-btn[disabled] span {
+            color: #666666 !important;
+        }
+
+        .debug-info {
+            background: var(--background-contrast-info);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--text-title-grey);
+            display: none;
+            border-left: 4px solid var(--border-plain-info);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .results {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-plain-grey);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .fr-card--custom {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .fr-card--custom:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--hover-box-shadow, 0 8px 24px rgba(0, 0, 145, 0.15));
+        }
+
+        .fr-card--custom .fr-card__img {
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .fr-card--custom .fr-card__body {
+            padding: 1rem;
+        }
+
+        .image-filename {
+            font-size: 0.85rem;
+            color: var(--text-mention-grey);
+            margin-bottom: 0.5rem;
+        }
+
+        .image-timestamp {
+            font-size: 0.75rem;
+            color: var(--text-mention-grey);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Styles pour notifications toast */
+        .toast-container {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 2000;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        
+        .toast-container .fr-notice {
+            pointer-events: auto;
+        }
+
+        .fr-notice--toast {
+            margin-bottom: 1rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        #hiddenCanvas {
+            display: none;
+        }
+
+        /* Responsive – breakpoints alignés DSFR (sm: 36em, md: 48em, lg: 62em) */
+        @media (max-width: 62em) {
+            .controls-section .fr-fieldset .fr-grid-row {
+                gap: 1rem;
+            }
+
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 1.5rem;
+            }
+        }
+
+        @media (max-width: 48em) {
+            .upload-area {
+                padding: 2rem 1rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .controls-section {
+                padding: 1.5rem;
+            }
+
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 1rem;
+            }
+
+            .results-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .fr-card--custom .fr-card__img {
+                height: 120px;
+            }
+
+            .toast-container {
+                top: 1rem;
+                right: 0.5rem;
+                left: 0.5rem;
+                max-width: none;
+            }
+
+            .fr-notice--toast {
+                margin-bottom: 0.5rem;
+            }
+        }
+
+        @media (max-width: 36em) {
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+
+            .fr-modal__content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip Links pour l'accessibilité -->
+    <nav class="fr-skiplinks">
+        <div class="fr-container">
+            <ul class="fr-skiplinks__list">
+                <li><a class="fr-link" href="#contenu">Aller au contenu principal</a></li>
+                <li><a class="fr-link" href="#controles">Aller aux contrôles</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header officiel DSFR -->
+    <header class="fr-header">
+        <div class="fr-header__body">
+            <div class="fr-container">
+                <div class="fr-header__body-row">
+                    <div class="fr-header__brand fr-enlarge-link">
+                        <div class="fr-header__brand-top">
+                            <div class="fr-header__logo">
+                                <p class="fr-logo">
+                                    République<br>Française
+                                </p>
+                            </div>
+                        </div>
+                        <div class="fr-header__service">
+                            <a href="/" title="Accueil – SNUM Miweb – République Française">
+                                <p class="fr-header__service-title">SNUM – Miweb</p>
+                            </a>
+                            <p class="fr-header__service-tagline">Extracteur d'images vidéo</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="fr-container fr-py-4w" id="contenu">
+        <!-- En-tête de page -->
+        <div class="fr-grid-row fr-grid-row--center">
+            <div class="fr-col-12 fr-col-lg-10">
+                <h1 class="fr-h1 fr-mb-2w" style="text-align: center;">
+                    Extracteur d'images vidéo
+                </h1>
+                <p class="fr-text--lead fr-mb-4w" style="text-align: center;">
+                    Chargez une vidéo, ajustez les paramètres et récupérez uniquement les diapositives uniques au format JPG – traitement 100&nbsp;% local
+                </p>
+            </div>
+        </div>
+
+        <!-- Section Upload -->
+        <div class="fr-grid-row">
+            <div class="fr-col-12">
+                <div class="upload-area" id="uploadArea" tabindex="0" role="button">
+                    <h2 class="fr-h3" id="upload-heading">Sélectionnez votre vidéo</h2>
+                    <p class="fr-text--sm">Glissez-déposez votre fichier ou cliquez pour parcourir</p>
+                    <p class="fr-text--xs" style="color: var(--text-mention-grey);">
+                        Formats pris en charge&nbsp;: MP4, AVI, MOV, WEBM, OGV &bull; Traitement 100&nbsp;% local
+                    </p>
+                </div>
+
+                <input type="file" id="videoFile" accept="video/*" aria-label="Sélectionnez un fichier vidéo" style="display: none;">
+
+                <div class="video-preview" id="videoPreview">
+                    <video id="previewVideo" controls muted aria-label="Prévisualisation de la vidéo sélectionnée"></video>
+                </div>
+
+                <!-- Alertes -->
+                <div class="fr-alert fr-alert--info" id="fileInfoMsg" role="status" style="display: none;">
+                    <p class="fr-alert__title" id="fileInfoTitle"></p>
+                    <p id="fileInfoText"></p>
+                </div>
+                <div class="fr-alert fr-alert--error" id="errorMsg" role="alert" style="display: none;">
+                    <p id="errorText"></p>
+                </div>
+                <div class="fr-alert fr-alert--success" id="successMsg" role="status" style="display: none;">
+                    <p id="successText"></p>
+                </div>
+
+                <!-- Progression DSFR -->
+                <div id="progressContainer" class="fr-my-4w" style="display: none;">
+                    <p class="fr-text--sm fr-mb-1w" id="progressText" aria-live="polite" aria-atomic="true">Traitement en cours...</p>
+                    <div class="fr-progress">
+                        <div class="fr-progress__bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-labelledby="progressText">
+                            <div class="fr-progress__bar-determinate" id="progressBar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Contrôles -->
+        <div class="controls-section" id="controles">
+            <fieldset class="fr-fieldset" id="fieldset-extraction" aria-labelledby="fieldset-extraction-legend">
+                <legend class="fr-fieldset__legend fr-text--bold" id="fieldset-extraction-legend">Paramètres d'extraction</legend>
+                <div class="fr-grid-row fr-grid-row--gutters">
+                    <div class="fr-col-12 fr-col-lg-3">
+                        <div class="fr-input-group">
+                            <label class="fr-label" for="interval">
+                                Intervalle (secondes)
+                                <span class="fr-hint-text" id="interval-hint">De 0,5 à 10</span>
+                            </label>
+                            <input class="fr-input" type="number" id="interval" value="2" min="0.5" max="10" step="0.5" aria-describedby="interval-hint">
+                        </div>
+                    </div>
+                    <div class="fr-col-12 fr-col-lg-3">
+                        <div class="fr-input-group">
+                            <label class="fr-label" for="threshold">
+                                Seuil de similarité (%)
+                                <span class="fr-hint-text" id="threshold-hint">De 50 à 99</span>
+                            </label>
+                            <input class="fr-input" type="number" id="threshold" value="99" min="50" max="99" aria-describedby="threshold-hint">
+                        </div>
+                    </div>
+                    <div class="fr-col-12 fr-col-lg-3">
+                        <div class="fr-input-group">
+                            <label class="fr-label" for="quality">
+                                Qualité JPG (%)
+                                <span class="fr-hint-text" id="quality-hint">De 60 à 100</span>
+                            </label>
+                            <input class="fr-input" type="number" id="quality" value="90" min="60" max="100" aria-describedby="quality-hint">
+                        </div>
+                    </div>
+                    <div class="fr-col-12 fr-col-lg-3 fr-btns-group fr-btns-group--inline" style="align-items: end;">
+                        <button class="fr-btn fr-btn--primary" id="processBtn" disabled>
+                            <span class="fr-icon-image-line" aria-hidden="true"></span>
+                            <span id="processBtnText">Extraire</span>
+                        </button>
+                        <button class="fr-btn fr-btn--secondary" id="pauseBtn" disabled style="display: none;" aria-pressed="false">
+                            <span id="pauseBtnIcon" class="fr-icon-pause-circle-line" aria-hidden="true"></span>
+                            <span id="pauseBtnText">Pause</span>
+                        </button>
+                        <button class="fr-btn fr-btn--secondary fr-btn--sm" id="debugToggle" aria-pressed="false">
+                            <span class="fr-icon-bug-line" aria-hidden="true"></span>
+                            <span lang="en">Debug</span>
+                        </button>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Accordéon pédagogique -->
+            <section class="fr-accordion fr-mt-3w">
+                <h2 class="fr-accordion__title">
+                    <button class="fr-accordion__btn" aria-expanded="false" aria-controls="accordion-params">
+                        Comprendre les paramètres d'extraction
+                    </button>
+                </h2>
+                <div class="fr-collapse" id="accordion-params">
+                    <div class="fr-grid-row fr-grid-row--gutters">
+                        <div class="fr-col-12 fr-col-md-4">
+                            <h3 class="fr-text--bold fr-mb-1w">Intervalle (secondes)</h3>
+                            <p class="fr-text--sm">
+                                Fréquence d'échantillonnage de la vidéo. Une valeur de <strong>2&nbsp;s</strong>
+                                signifie qu'une image est capturée toutes les 2 secondes.
+                                Réduisez pour ne rater aucune diapositive courte, augmentez pour accélérer le traitement.
+                            </p>
+                        </div>
+                        <div class="fr-col-12 fr-col-md-4">
+                            <h3 class="fr-text--bold fr-mb-1w">Seuil de similarité</h3>
+                            <p class="fr-text--sm">
+                                Pourcentage de ressemblance entre deux images consécutives au-dessus duquel
+                                elles sont considérées identiques. À <strong>99&nbsp;%</strong>, seules les images
+                                quasi parfaitement identiques sont filtrées. Abaissez vers 85-90&nbsp;% si trop
+                                de doublons subsistent.
+                            </p>
+                        </div>
+                        <div class="fr-col-12 fr-col-md-4">
+                            <h3 class="fr-text--bold fr-mb-1w">Qualité JPG</h3>
+                            <p class="fr-text--sm">
+                                Taux de compression des images extraites. <strong>90&nbsp;%</strong> offre un bon
+                                compromis entre qualité visuelle et poids de fichier. Montez à 100&nbsp;% pour
+                                un rendu impeccable, descendez vers 70&nbsp;% pour des fichiers plus légers.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Debug Info -->
+            <div class="debug-info" id="debugInfo" role="log" aria-hidden="true" aria-label="Journal de débogage"></div>
+        </div>
+
+        <!-- Section Résultats -->
+        <div class="results" id="results">
+            <div class="results-header">
+                <h2 class="fr-h3">Images extraites</h2>
+                <div>
+                    <span class="fr-badge fr-badge--blue-france" id="imageCount" role="status">0 images</span>
+                    <button class="fr-btn fr-btn--secondary fr-ml-2w" id="downloadAllBtn">
+                        <span class="fr-icon-download-line" aria-hidden="true"></span>
+                        Télécharger tout (ZIP)
+                    </button>
+                </div>
+            </div>
+            <div class="images-grid" id="imagesGrid"></div>
+        </div>
+    </main>
+
+    <!-- Footer DSFR -->
+    <footer class="fr-footer" id="footer">
+        <div class="fr-container">
+            <div class="fr-footer__body">
+                <div class="fr-footer__brand fr-enlarge-link">
+                    <a class="fr-footer__brand-link" href="/" title="Retour à l'accueil – SNUM Miweb – République Française">
+                        <p class="fr-logo">
+                            République<br>Française
+                        </p>
+                    </a>
+                </div>
+                <div class="fr-footer__content">
+                    <p class="fr-footer__content-desc">
+                        Extracteur d'images vidéo – Outil interne SNUM Miweb
+                    </p>
+                    <ul class="fr-footer__content-list">
+                        <li class="fr-footer__content-item">
+                            <a class="fr-footer__content-link" target="_blank" rel="noopener" href="https://legifrance.gouv.fr">legifrance.gouv.fr<span class="fr-sr-only"> – ouvre une nouvelle fenêtre</span></a>
+                        </li>
+                        <li class="fr-footer__content-item">
+                            <a class="fr-footer__content-link" target="_blank" rel="noopener" href="https://gouvernement.fr">gouvernement.fr<span class="fr-sr-only"> – ouvre une nouvelle fenêtre</span></a>
+                        </li>
+                        <li class="fr-footer__content-item">
+                            <a class="fr-footer__content-link" target="_blank" rel="noopener" href="https://service-public.fr">service-public.fr<span class="fr-sr-only"> – ouvre une nouvelle fenêtre</span></a>
+                        </li>
+                        <li class="fr-footer__content-item">
+                            <a class="fr-footer__content-link" target="_blank" rel="noopener" href="https://data.gouv.fr">data.gouv.fr<span class="fr-sr-only"> – ouvre une nouvelle fenêtre</span></a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="fr-footer__bottom">
+                <ul class="fr-footer__bottom-list">
+                    <li class="fr-footer__bottom-item">
+                        <span class="fr-footer__bottom-link">Accessibilité&nbsp;: partiellement conforme</span>
+                    </li>
+                </ul>
+                <div class="fr-footer__bottom-copy">
+                    <p>Sauf mention contraire, tous les contenus de ce site sont sous
+                        <a href="https://github.com/etalab/licence-ouverte/blob/master/LO.md" target="_blank" rel="noopener">licence etalab-2.0<span class="fr-sr-only"> – ouvre une nouvelle fenêtre</span></a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Container pour notifications toast -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- Modal DSFR pour voir les images en grand -->
+    <dialog id="imageModal" class="fr-modal" aria-labelledby="imageModal-title">
+        <div class="fr-container fr-container--fluid fr-container-md">
+            <div class="fr-modal__body">
+                <div class="fr-modal__header">
+                    <button class="fr-btn--close fr-btn" aria-controls="imageModal">
+                        Fermer
+                    </button>
+                </div>
+                <div class="fr-modal__content">
+                    <h2 id="imageModal-title" class="fr-modal__title">Aperçu de l&rsquo;image</h2>
+                    <div style="text-align: center;">
+                        <img id="modalImage" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Aperçu agrandi de l'image extraite" style="max-width: 100%; max-height: 70vh; border-radius: 0.5rem;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Canvas caché pour l'extraction des frames -->
+    <canvas id="hiddenCanvas" aria-hidden="true"></canvas>
+
+    <!-- Noscript -->
+    <noscript>
+        <div class="fr-alert fr-alert--warning fr-my-4w">
+            <p>JavaScript est nécessaire pour utiliser cet outil.</p>
+        </div>
+    </noscript>
+
+    <!-- JSZip chargé AVANT le script principal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
+
+    <script>
+        'use strict';
+
+        // Constantes de configuration
+        const CONFIG = {
+            INACTIVITY_TIMEOUT: 60000,
+            INTER_FRAME_DELAY: 50,
+            COMPARISON_SAMPLES: 1500,
+            COLOR_DIFF_THRESHOLD: 100,
+            TOAST_DURATION: 4000,
+            MIN_FILE_SIZE: 1024,
+            MAX_FILE_SIZE: 1024 * 1024 * 1024,
+            MEMORY_CLEANUP_INTERVAL: 50,
+            SR_ANNOUNCE_INTERVAL: 5000
+        };
+
+        // Échappement HTML pour prévenir les XSS
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        class VideoFrameExtractor {
+            constructor() {
+                this.video = null;
+                this.canvas = document.getElementById('hiddenCanvas');
+                this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+                this.extractedFrames = [];
+                this.isProcessing = false;
+                this._abortExtraction = false;
+                this._lastSRAnnounce = 0;
+
+                this.initializeElements();
+                this.setupEventListeners();
+            }
+
+            initializeElements() {
+                this.videoFile = document.getElementById('videoFile');
+                this.processBtn = document.getElementById('processBtn');
+                this.uploadZone = document.getElementById('uploadArea');
+                this.progressContainer = document.getElementById('progressContainer');
+                this.progressBar = document.getElementById('progressBar');
+                this.progressText = document.getElementById('progressText');
+                this.results = document.getElementById('results');
+                this.imagesGrid = document.getElementById('imagesGrid');
+                this.imageCount = document.getElementById('imageCount');
+                this.downloadAllBtn = document.getElementById('downloadAllBtn');
+                this.fileInfoMsg = document.getElementById('fileInfoMsg');
+                this.fileInfoTitle = document.getElementById('fileInfoTitle');
+                this.fileInfoText = document.getElementById('fileInfoText');
+                this.errorMsg = document.getElementById('errorMsg');
+                this.errorText = document.getElementById('errorText');
+                this.successMsg = document.getElementById('successMsg');
+                this.successText = document.getElementById('successText');
+                this.videoPreview = document.getElementById('videoPreview');
+                this.previewVideo = document.getElementById('previewVideo');
+                this.modal = document.getElementById('imageModal');
+                this.modalImage = document.getElementById('modalImage');
+                this.debugInfo = document.getElementById('debugInfo');
+                this.debugToggle = document.getElementById('debugToggle');
+                this.debugMode = false;
+                this.toastContainer = document.getElementById('toastContainer');
+                this.currentFocusIndex = -1;
+                this.focusableElements = [];
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.processBtnText = document.getElementById('processBtnText');
+                this.pauseBtnIcon = document.getElementById('pauseBtnIcon');
+                this.pauseBtnText = document.getElementById('pauseBtnText');
+            }
+
+            setupEventListeners() {
+                // Clic et clavier sur la zone d'upload
+                this.uploadZone.addEventListener('click', () => {
+                    this.videoFile.click();
+                });
+                this.uploadZone.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.videoFile.click();
+                    }
+                });
+
+                // Drag & drop
+                this.uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.uploadZone.classList.add('dragover');
+                });
+
+                this.uploadZone.addEventListener('dragleave', () => {
+                    this.uploadZone.classList.remove('dragover');
+                });
+
+                this.uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.uploadZone.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.videoFile.files = files;
+                        this.handleFileSelect();
+                    }
+                });
+
+                this.videoFile.addEventListener('change', () => this.handleFileSelect());
+                this.processBtn.addEventListener('click', () => this.processVideo());
+                this.downloadAllBtn.addEventListener('click', () => this.downloadAllImages());
+
+                // Modal events (DSFR modal se gère automatiquement)
+                // Navigation clavier
+                document.addEventListener('keydown', (e) => this.handleKeyNavigation(e));
+                
+                // Gestion du thème
+                
+                // Gestion pause/reprise
+                this.pauseBtn.addEventListener('click', () => this.togglePause());
+
+                // Debug toggle avec aria-pressed
+                this.debugToggle.addEventListener('click', () => {
+                    this.debugMode = !this.debugMode;
+                    this.debugInfo.style.display = this.debugMode ? 'block' : 'none';
+                    this.debugToggle.setAttribute('aria-pressed', this.debugMode);
+                    this.debugInfo.setAttribute('aria-hidden', !this.debugMode);
+                });
+            }
+
+            async handleFileSelect() {
+                const file = this.videoFile.files[0];
+                if (!file) return;
+
+                // Validation robuste avec magic numbers
+                this.showToast('Validation du fichier...', 'info');
+                const validation = await this.validateFile(file);
+                if (!validation.isValid) {
+                    this.showError(validation.errors.join('. '));
+                    return;
+                }
+
+                this.processBtn.disabled = false;
+                this.uploadZone.querySelector('h2').textContent = `Fichier sélectionné\u00a0: ${file.name}`;
+                this.uploadZone.querySelector('.fr-text--sm').textContent = `Taille\u00a0: ${(file.size / 1024 / 1024).toFixed(2)} Mo`;
+
+                // Révoquer l'ancienne ObjectURL si existante
+                if (this._previewObjectURL) {
+                    URL.revokeObjectURL(this._previewObjectURL);
+                }
+                this._previewObjectURL = URL.createObjectURL(file);
+                this.previewVideo.src = this._previewObjectURL;
+                this.videoPreview.style.display = 'block';
+
+                // Afficher l'alerte DSFR avec les métadonnées de la vidéo
+                this.hideMessages();
+                const sizeMo = (file.size / 1024 / 1024).toFixed(2);
+                this.fileInfoTitle.textContent = `Votre vidéo est prête\u00a0: ${file.name}`;
+
+                // Attendre les métadonnées pour afficher la durée et guider l'utilisateur
+                this.previewVideo.addEventListener('loadedmetadata', () => {
+                    const duration = this.previewVideo.duration;
+                    const mins = Math.floor(duration / 60);
+                    const secs = Math.floor(duration % 60);
+                    const interval = parseFloat(document.getElementById('interval').value) || 2;
+                    const estimatedFrames = Math.ceil(duration / interval);
+                    this.fileInfoText.textContent =
+                        `${mins}\u00a0min\u00a0${secs}\u00a0s \u2013 ${sizeMo}\u00a0Mo \u2013 ` +
+                        `${estimatedFrames} images à analyser. ` +
+                        `Ajustez les paramètres si besoin puis cliquez sur Extraire.`;
+                    this.fileInfoMsg.style.display = 'block';
+                    this.announceToScreenReader(
+                        `Vidéo ${file.name} prête. ` +
+                        `Durée\u00a0: ${mins} minutes ${secs} secondes. ` +
+                        `Cliquez sur Extraire pour lancer l\u2019analyse.`
+                    );
+                }, { once: true });
+            }
+
+            async processVideo() {
+                if (this.isProcessing) return;
+
+                const file = this.videoFile.files[0];
+                if (!file) {
+                    this.showError('Veuillez sélectionner une vidéo.');
+                    return;
+                }
+
+                // Annuler toute extraction résiduelle
+                this._abortExtraction = true;
+                await new Promise(r => setTimeout(r, 100));
+                this._abortExtraction = false;
+
+                this.isProcessing = true;
+                this.isPaused = false;
+                this.hideMessages();
+                this.processBtn.disabled = true;
+                this.pauseBtn.disabled = false;
+                this.pauseBtn.style.display = 'inline-flex';
+                this.processBtnText.textContent = 'Traitement...';
+                this.progressContainer.style.display = 'block';
+                this.results.style.display = 'none';
+                this.extractedFrames = [];
+                this.clearDebugLog();
+                this.debugLog('🚀 Début du traitement vidéo');
+
+                try {
+                    await this.extractFrames(file);
+                    this.debugLog('✅ Traitement terminé avec succès');
+                    this.showSuccess(`${this.extractedFrames.length} images uniques extraites. Parcourez la galerie ci-dessous ou téléchargez le tout en ZIP.`);
+                    this.displayResults();
+                } catch (error) {
+                    this.debugLog(`❌ Erreur\u00a0: ${error.message}`);
+                    this.showError(`Erreur lors du traitement\u00a0: ${error.message}`);
+                } finally {
+                    this.isProcessing = false;
+                    this.isPaused = false;
+                    this.processBtn.disabled = false;
+                    this.pauseBtn.disabled = true;
+                    this.pauseBtn.style.display = 'none';
+                    this.processBtnText.textContent = 'Extraire';
+                    this.progressContainer.style.display = 'none';
+                }
+            }
+
+            async extractFrames(file) {
+                return new Promise((resolve, reject) => {
+                    const video = this.previewVideo;
+                    // Préparer la vidéo pour l'extraction
+                    video.pause();
+                    video.muted = true;
+                    video.removeAttribute('controls');
+                    this.video = video;
+
+                    const interval = parseFloat(document.getElementById('interval').value);
+                    const threshold = parseInt(document.getElementById('threshold').value);
+
+                    let isProcessing = false;
+                    let timeoutId = null;
+                    let safetyTimeout = null;
+
+                    // Restaurer les contrôles à la fin (succès ou échec)
+                    const cleanup = () => {
+                        video.setAttribute('controls', '');
+                        video.onseeked = null;
+                        video.onloadedmetadata = null;
+                        video.onerror = null;
+                    };
+
+                    const originalResolve = resolve;
+                    const originalReject = reject;
+                    resolve = (v) => { cleanup(); originalResolve(v); };
+                    reject = (e) => { cleanup(); originalReject(e); };
+
+                    video.onloadedmetadata = () => {
+                        const videoInfo = {
+                            duration: video.duration,
+                            width: video.videoWidth,
+                            height: video.videoHeight
+                        };
+                        console.log('Vidéo chargée\u00a0:', videoInfo);
+                        this.debugLog('Vidéo chargée\u00a0: ' + JSON.stringify(videoInfo, null, 2));
+                        
+                        const duration = video.duration;
+                        if (!isFinite(duration) || duration <= 0) {
+                            reject(new Error('Durée de la vidéo invalide'));
+                            return;
+                        }
+                        
+                        // Timeout d'inactivité : reset à chaque frame traitée
+                        // Si aucune frame n'avance pendant 60s = vrai blocage
+                        const inactivityLimit = CONFIG.INACTIVITY_TIMEOUT;
+
+                        const resetInactivityTimeout = () => {
+                            if (safetyTimeout) clearTimeout(safetyTimeout);
+                            safetyTimeout = setTimeout(() => {
+                                reject(new Error(`Timeout\u00a0: aucune frame traitée depuis ${inactivityLimit/1000}\u00a0s`));
+                            }, inactivityLimit);
+                        };
+
+                        const estimatedFrames = Math.ceil(duration / interval);
+                        console.log(`Timeout inactivité\u00a0: ${inactivityLimit/1000}\u00a0s, ${estimatedFrames} frames estimées`);
+                        this.debugLog(`⏱️ Timeout inactivité\u00a0: ${inactivityLimit/1000}\u00a0s, ${estimatedFrames} frames`);
+
+                        resetInactivityTimeout();
+                        
+                        const totalFrames = Math.floor(duration / interval);
+                        let currentFrame = 0;
+                        let lastImageData = null;
+                        let seekErrors = 0;
+                        const maxSeekErrors = 5;
+
+                        // Gestion mémoire adaptative selon durée et taille
+                        const memoryBudget = this.calculateMemoryBudget(video.videoWidth, video.videoHeight, duration);
+                        const { canvasWidth, canvasHeight } = this.getOptimalCanvasSize(
+                            video.videoWidth, 
+                            video.videoHeight, 
+                            memoryBudget
+                        );
+                        
+                        this.canvas.width = canvasWidth;
+                        this.canvas.height = canvasHeight;
+
+                        console.log('Canvas configuré\u00a0:', this.canvas.width, 'x', this.canvas.height);
+                        this.debugLog(`Canvas\u00a0: ${this.canvas.width}x${this.canvas.height}, frames totales\u00a0: ${totalFrames}`);
+
+                        // Variables pour la gestion mémoire
+                        let framesProcessed = 0;
+                        const memoryCleanupInterval = 50; // Nettoyer tous les 50 frames pour les longues vidéos
+                        
+                        const processFrame = () => {
+                            if (isProcessing) return;
+                            
+                            const currentTime = currentFrame * interval;
+                            
+                            if (currentTime >= duration) {
+                                if (safetyTimeout) clearTimeout(safetyTimeout);
+                                console.log('Extraction terminée\u00a0:', this.extractedFrames.length, 'frames');
+                                // Nettoyer la référence (la preview reste intacte)
+                                this.video = null;
+                                resolve();
+                                return;
+                            }
+
+                            isProcessing = true;
+                            console.log(`Traitement frame ${currentFrame + 1}/${totalFrames} à ${currentTime.toFixed(2)}s`);
+                            this.debugLog(`Frame ${currentFrame + 1}/${totalFrames} - ${currentTime.toFixed(2)}s`);
+                            
+                            // Libération mémoire périodique pour les longues vidéos
+                            framesProcessed++;
+                            if (duration > 600 && framesProcessed % memoryCleanupInterval === 0) {
+                                // Forcer le garbage collector (indirect)
+                                if (window.gc) window.gc();
+                                console.log(`Nettoyage mémoire après ${framesProcessed} frames`);
+                                this.debugLog(`🧹 Nettoyage mémoire (${framesProcessed} frames traitées)`);
+                            }
+                            
+                            // Mettre à jour la progression immédiatement
+                            const progress = ((currentFrame) / totalFrames) * 100;
+                            const timeRemaining = ((totalFrames - currentFrame) * interval * 0.5) / 60; // Estimation temps restant
+                            this.updateProgress(progress, `Analyse en cours\u00a0: image ${currentFrame + 1} sur ${totalFrames} (${this.extractedFrames.length} uniques retenues) \u2013 encore ~${timeRemaining.toFixed(1)}\u00a0min`);
+                            
+                            video.currentTime = currentTime;
+                        };
+
+                        video.onseeked = async () => {
+                            if (!isProcessing) return;
+                            resetInactivityTimeout();
+
+                            try {
+                                // Dessiner la frame sur le canvas
+                                this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+                                
+                                // Obtenir les données d'image (échantillonnage pour optimiser)
+                                const currentImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                                
+                                // Vérifier si c'est une frame unique
+                                const isUnique = !lastImageData || !this.areImagesSimilar(lastImageData, currentImageData, threshold);
+                                if (isUnique) {
+                                    // Convertir en JPG
+                                    const quality = parseInt(document.getElementById('quality').value) / 100;
+                                    const dataURL = this.canvas.toDataURL('image/jpeg', quality);
+                                    
+                                    this.extractedFrames.push({
+                                        dataURL: dataURL,
+                                        filename: `slide_${String(this.extractedFrames.length + 1).padStart(3, '0')}.jpg`,
+                                        timestamp: video.currentTime
+                                    });
+                                    
+                                    // Pour les longues vidéos, ne pas garder toutes les ImageData en mémoire
+                                    if (duration > 600) {
+                                        // Créer une copie réduite pour la comparaison
+                                        const reducedData = new ImageData(
+                                            new Uint8ClampedArray(currentImageData.data),
+                                            currentImageData.width,
+                                            currentImageData.height
+                                        );
+                                        lastImageData = reducedData;
+                                    } else {
+                                        lastImageData = currentImageData;
+                                    }
+                                    
+                                    console.log(`Frame unique ajoutée\u00a0: ${this.extractedFrames.length}`);
+                                    this.debugLog(`✅ Frame unique #${this.extractedFrames.length} à ${video.currentTime.toFixed(2)}s`);
+                                }
+
+                                currentFrame++;
+                                isProcessing = false;
+                                
+                                // Frame suivante (avec vérification annulation et pause)
+                                const scheduleNext = () => {
+                                    if (this._abortExtraction) {
+                                        if (safetyTimeout) clearTimeout(safetyTimeout);
+                                        this.video = null;
+                                        resolve();
+                                        return;
+                                    }
+                                    if (this.isPaused) {
+                                        timeoutId = setTimeout(scheduleNext, 200);
+                                    } else {
+                                        timeoutId = setTimeout(processFrame, CONFIG.INTER_FRAME_DELAY);
+                                    }
+                                };
+                                timeoutId = setTimeout(scheduleNext, CONFIG.INTER_FRAME_DELAY);
+                                
+                            } catch (error) {
+                                console.error('Erreur lors du traitement de la frame\u00a0:', error);
+                                seekErrors++;
+                                
+                                if (seekErrors >= maxSeekErrors) {
+                                    if (safetyTimeout) clearTimeout(safetyTimeout);
+                                    reject(new Error(`Trop d'erreurs de traitement\u00a0: ${error.message}`));
+                                    return;
+                                }
+                                
+                                currentFrame++;
+                                isProcessing = false;
+                                timeoutId = setTimeout(() => {
+                                    if (!this.isPaused) {
+                                        processFrame();
+                                    }
+                                }, 50);
+                            }
+                        };
+
+                        video.onerror = (e) => {
+                            if (safetyTimeout) clearTimeout(safetyTimeout);
+                            console.error('Erreur vidéo\u00a0:', e);
+                            reject(new Error('Erreur lors du chargement de la vidéo'));
+                        };
+                        
+                        // Démarrer le traitement
+                        this.updateProgress(0, 'Initialisation...');
+                        setTimeout(processFrame, 100);
+                    };
+
+                    // Les métadonnées sont déjà chargées (preview vidéo)
+                    if (video.readyState >= 1) {
+                        video.onloadedmetadata();
+                    }
+                    // Sinon, attendre (cas improbable)
+                    // onloadedmetadata est déjà assigné ci-dessus
+                });
+            }
+
+            // Comparaison d'images synchrone avec échantillonnage rapide
+            areImagesSimilar(imageData1, imageData2, threshold) {
+                const data1 = imageData1.data;
+                const data2 = imageData2.data;
+                let differences = 0;
+                const totalPixels = data1.length / 4;
+
+                // Échantillonnage fixe : 1500 pixels suffisent pour détecter un changement de slide
+                const maxSamples = 1500;
+                const sampleStep = Math.max(4, Math.floor(totalPixels / maxSamples) * 4);
+                let sampledPixels = 0;
+
+                for (let i = 0; i < data1.length; i += sampleStep) {
+                    if (i + 3 >= data1.length) break;
+
+                    const colorDiff = Math.abs(data1[i] - data2[i])
+                        + Math.abs(data1[i + 1] - data2[i + 1])
+                        + Math.abs(data1[i + 2] - data2[i + 2]);
+
+                    if (colorDiff > 100) {
+                        differences++;
+                    }
+                    sampledPixels++;
+                }
+
+                const similarity = sampledPixels === 0 ? 100 : ((sampledPixels - differences) / sampledPixels) * 100;
+                return similarity >= threshold;
+            }
+
+            // Calcul budget mémoire adaptatif
+            calculateMemoryBudget(width, height, duration) {
+                const availableMemory = navigator.deviceMemory ? navigator.deviceMemory * 1024 * 1024 * 1024 : 2 * 1024 * 1024 * 1024; // 2GB par défaut
+                const videoPixels = width * height;
+                const interval = parseFloat(document.getElementById('interval').value) || 2;
+                const estimatedFrames = Math.ceil(duration / interval);
+                const memoryPerFrame = videoPixels * 4; // RGBA
+                const totalMemoryNeeded = estimatedFrames * memoryPerFrame;
+                
+                // Pour les longues vidéos (>10 min), être plus conservateur avec la mémoire
+                const memoryRatio = duration > 600 ? 0.15 : 0.25;
+                
+                // Limiter selon la durée et la mémoire disponible
+                return Math.min(totalMemoryNeeded, availableMemory * memoryRatio);
+            }
+
+            // Taille canvas optimale selon budget mémoire
+            getOptimalCanvasSize(originalWidth, originalHeight, memoryBudget) {
+                const originalPixels = originalWidth * originalHeight;
+                const interval = parseFloat(document.getElementById('interval').value) || 2;
+                const duration = this.video ? this.video.duration : 1800; // Estimation par défaut 30 min
+                const estimatedFrames = Math.ceil(duration / interval);
+                const maxPixels = memoryBudget / (4 * Math.min(estimatedFrames, 100)); // Limiter l'estimation
+                
+                // Pour les vidéos HD longues, forcer une réduction plus agressive
+                let targetWidth = originalWidth;
+                let targetHeight = originalHeight;
+                
+                // Si vidéo > 10 min et HD, réduire à 720p max pour les comparaisons
+                if (duration > 600 && originalWidth > 1280) {
+                    const hdScale = 1280 / originalWidth;
+                    targetWidth = Math.floor(originalWidth * hdScale);
+                    targetHeight = Math.floor(originalHeight * hdScale);
+                }
+                
+                // Si encore trop grand par rapport au budget
+                if (targetWidth * targetHeight > maxPixels) {
+                    const scaleFactor = Math.sqrt(maxPixels / (targetWidth * targetHeight));
+                    targetWidth = Math.floor(targetWidth * scaleFactor);
+                    targetHeight = Math.floor(targetHeight * scaleFactor);
+                }
+                
+                // Minimum 320x180 pour garder une comparaison viable
+                targetWidth = Math.max(320, targetWidth);
+                targetHeight = Math.max(180, targetHeight);
+                
+                return {
+                    canvasWidth: targetWidth,
+                    canvasHeight: targetHeight
+                };
+            }
+
+            displayResults() {
+                this.imageCount.textContent = `${this.extractedFrames.length} images`;
+                this.imagesGrid.replaceChildren();
+                this.imagesGrid.setAttribute('role', 'list');
+                this.imagesGrid.setAttribute('aria-label', 'Galerie des images extraites');
+
+                // Délégation d'événements sur la grille (au lieu de listeners par carte)
+                this.imagesGrid.onclick = (e) => {
+                    const card = e.target.closest('.fr-card--custom');
+                    if (!card || e.target.closest('button')) return;
+                    const idx = parseInt(card.dataset.index, 10);
+                    const frame = this.extractedFrames[idx];
+                    if (frame) this.showModal(frame.dataURL, frame.filename);
+                };
+                this.imagesGrid.onkeydown = (e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    const card = e.target.closest('.fr-card--custom');
+                    if (!card || e.target.closest('button')) return;
+                    e.preventDefault();
+                    const idx = parseInt(card.dataset.index, 10);
+                    const frame = this.extractedFrames[idx];
+                    if (frame) this.showModal(frame.dataURL, frame.filename);
+                };
+
+                this.extractedFrames.forEach((frame, index) => {
+                    const imageCard = document.createElement('div');
+                    imageCard.className = 'fr-card fr-card--custom';
+                    imageCard.setAttribute('tabindex', '0');
+                    imageCard.setAttribute('role', 'listitem');
+                    imageCard.dataset.index = index;
+                    imageCard.setAttribute('aria-label',
+                        `Image ${frame.filename} \u2013 ${this.formatTime(frame.timestamp)}, activez pour agrandir`);
+
+                    // Construction DOM programmatique (pas de innerHTML)
+                    const body = document.createElement('div');
+                    body.className = 'fr-card__body';
+                    const content = document.createElement('div');
+                    content.className = 'fr-card__content';
+
+                    const img = document.createElement('img');
+                    img.className = 'fr-card__img';
+                    img.src = frame.dataURL;
+                    img.alt = `Image extraite ${index + 1} à ${this.formatTime(frame.timestamp)}`;
+                    img.loading = 'lazy';
+
+                    const title = document.createElement('h3');
+                    title.className = 'fr-card__title';
+                    title.textContent = frame.filename;
+
+                    const desc = document.createElement('p');
+                    desc.className = 'fr-card__desc';
+                    desc.textContent = this.formatTime(frame.timestamp);
+
+                    const footer = document.createElement('div');
+                    footer.className = 'fr-card__footer';
+                    const dlBtn = document.createElement('button');
+                    dlBtn.className = 'fr-btn fr-btn--sm fr-btn--secondary';
+                    dlBtn.setAttribute('aria-label', `Télécharger ${frame.filename}`);
+                    const dlIcon = document.createElement('span');
+                    dlIcon.className = 'fr-icon-download-line';
+                    dlIcon.setAttribute('aria-hidden', 'true');
+                    dlBtn.appendChild(dlIcon);
+                    dlBtn.appendChild(document.createTextNode(' Télécharger'));
+                    dlBtn.addEventListener('click', () => this.downloadImage(frame.dataURL, frame.filename));
+                    footer.appendChild(dlBtn);
+
+                    content.append(img, title, desc, footer);
+                    body.appendChild(content);
+                    imageCard.appendChild(body);
+                    this.imagesGrid.appendChild(imageCard);
+                });
+
+                this.updateFocusableElements();
+                this.results.style.display = 'block';
+            }
+
+            showModal(imageSrc, filename) {
+                this.modalImage.src = imageSrc;
+                this.modalImage.alt = filename
+                    ? `Aperçu agrandi de ${filename}`
+                    : 'Aperçu agrandi de l\u2019image extraite';
+                if (typeof window.dsfr === 'function') {
+                    window.dsfr(this.modal).modal.open();
+                } else {
+                    this.modal.showModal();
+                }
+            }
+
+            downloadImage(dataURL, filename) {
+                const link = document.createElement('a');
+                link.href = dataURL;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            async downloadAllImages() {
+                if (this.extractedFrames.length === 0) return;
+
+                // Utiliser JSZip pour créer un fichier ZIP
+                if (typeof JSZip === 'undefined') {
+                    // Fallback: télécharger les images une par une
+                    for (const frame of this.extractedFrames) {
+                        this.downloadImage(frame.dataURL, frame.filename);
+                        await new Promise(resolve => setTimeout(resolve, 100)); // Petit délai entre les téléchargements
+                    }
+                    return;
+                }
+
+                const zip = new JSZip();
+                
+                this.extractedFrames.forEach(frame => {
+                    // Convertir dataURL en blob
+                    const base64Data = frame.dataURL.split(',')[1];
+                    zip.file(frame.filename, base64Data, { base64: true });
+                });
+
+                try {
+                    const content = await zip.generateAsync({ type: 'blob' });
+                    const link = document.createElement('a');
+                    const zipURL = URL.createObjectURL(content);
+                    link.href = zipURL;
+                    link.download = `video_frames_${Date.now()}.zip`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(zipURL);
+                } catch (error) {
+                    this.showError('Erreur lors de la création du ZIP.');
+                }
+            }
+
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            updateProgress(percentage, message) {
+                this.progressBar.style.width = `${percentage}%`;
+                this.progressBar.parentElement.setAttribute('aria-valuenow', Math.round(percentage));
+                this.progressText.textContent = message;
+                // Throttle SR : une annonce toutes les 5 s max
+                const now = Date.now();
+                if (now - this._lastSRAnnounce > CONFIG.SR_ANNOUNCE_INTERVAL) {
+                    this._lastSRAnnounce = now;
+                    this.announceToScreenReader(message);
+                }
+            }
+
+            hideMessages() {
+                this.fileInfoMsg.style.display = 'none';
+                this.errorMsg.style.display = 'none';
+                this.successMsg.style.display = 'none';
+            }
+
+            showError(message) {
+                this.errorText.textContent = message;
+                this.errorMsg.style.display = 'block';
+                this.successMsg.style.display = 'none';
+                this.showToast(message, 'error');
+                this.announceToScreenReader(`Erreur\u00a0: ${message}`);
+            }
+
+            showSuccess(message) {
+                this.successText.textContent = message;
+                this.successMsg.style.display = 'block';
+                this.errorMsg.style.display = 'none';
+                this.showToast(message, 'success');
+                this.announceToScreenReader(`Succès\u00a0: ${message}`);
+            }
+
+            debugLog(message) {
+                if (this.debugMode) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    this.debugInfo.insertAdjacentText('beforeend', `[${timestamp}] ${message}\n`);
+                    this.debugInfo.scrollTop = this.debugInfo.scrollHeight;
+                }
+            }
+
+            clearDebugLog() {
+                this.debugInfo.textContent = '';
+            }
+
+            // Gestion des notifications toast (construction DOM, pas innerHTML)
+            showToast(message, type = 'info') {
+                // fr-notice ne supporte que --info et --alert dans le DSFR
+                const dsfrType = (type === 'error') ? 'alert' : 'info';
+                const toast = document.createElement('div');
+                toast.className = `fr-notice fr-notice--${dsfrType} fr-notice--toast`;
+
+                const container = document.createElement('div');
+                container.className = 'fr-container';
+                const body = document.createElement('div');
+                body.className = 'fr-notice__body';
+                const title = document.createElement('p');
+                title.className = 'fr-notice__title';
+                title.textContent = message;
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'fr-btn--close fr-btn';
+                closeBtn.title = 'Masquer le message';
+                closeBtn.textContent = 'Masquer';
+                closeBtn.addEventListener('click', () => toast.remove());
+
+                body.appendChild(title);
+                body.appendChild(closeBtn);
+                container.appendChild(body);
+                toast.appendChild(container);
+                this.toastContainer.appendChild(toast);
+
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, CONFIG.TOAST_DURATION);
+            }
+
+            // Navigation clavier avancée
+            handleKeyNavigation(e) {
+                // Échap pour fermer modal
+                if (e.key === 'Escape') {
+                    if (this.modal.open) {
+                        if (typeof window.dsfr === 'function') {
+                            window.dsfr(this.modal).modal.close();
+                        } else {
+                            this.modal.close();
+                        }
+                    }
+                }
+
+                // Ctrl+Enter pour traiter
+                if (e.ctrlKey && e.key === 'Enter' && !this.processBtn.disabled) {
+                    this.processVideo();
+                }
+
+                // Flèches uniquement quand le focus est dans la galerie
+                if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') &&
+                    this.imagesGrid.contains(document.activeElement)) {
+                    this.navigateGallery(e.key === 'ArrowRight' ? 1 : -1);
+                    e.preventDefault();
+                }
+            }
+
+            navigateGallery(direction) {
+                if (this.focusableElements.length === 0) return;
+                
+                this.currentFocusIndex += direction;
+                
+                if (this.currentFocusIndex >= this.focusableElements.length) {
+                    this.currentFocusIndex = 0;
+                } else if (this.currentFocusIndex < 0) {
+                    this.currentFocusIndex = this.focusableElements.length - 1;
+                }
+                
+                this.focusableElements[this.currentFocusIndex].focus();
+            }
+
+            updateFocusableElements() {
+                this.focusableElements = Array.from(this.imagesGrid.querySelectorAll('.fr-card'));
+                this.currentFocusIndex = -1;
+            }
+
+            // Validation fichiers robuste avec magic numbers
+            async validateFile(file) {
+                const errors = [];
+                
+                // Taille avec limites dynamiques selon durée estimée
+                const maxSize = 1024 * 1024 * 1024; // 1GB pour vidéos longues
+                if (file.size > maxSize) {
+                    errors.push(`Fichier trop volumineux (max ${Math.floor(maxSize / 1024 / 1024 / 1024)}\u00a0Go)`);
+                }
+                
+                if (file.size < 1024) {
+                    errors.push('Fichier trop petit (min 1\u00a0Ko)');
+                }
+                
+                // Validation magic numbers
+                try {
+                    const magicValidation = await this.validateMagicNumbers(file);
+                    if (!magicValidation.isValid) {
+                        errors.push(`Format non reconnu\u00a0: ${magicValidation.detectedFormat || 'Inconnu'}`);
+                    }
+                } catch (error) {
+                    errors.push('Impossible de vérifier l\'intégrité du fichier');
+                }
+                
+                // Type MIME et extension cohérents
+                const allowedTypes = ['video/mp4', 'video/x-msvideo', 'video/quicktime', 'video/webm', 'video/ogg'];
+                if (!allowedTypes.includes(file.type)) {
+                    errors.push('Format MIME non pris en charge');
+                }
+                
+                return {
+                    isValid: errors.length === 0,
+                    errors: errors
+                };
+            }
+
+            // Validation magic numbers avancée
+            async validateMagicNumbers(file) {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const bytes = new Uint8Array(e.target.result);
+                        const format = this.detectVideoFormat(bytes);
+                        resolve({
+                            isValid: format !== 'unknown',
+                            detectedFormat: format
+                        });
+                    };
+                    reader.onerror = () => resolve({ isValid: false, detectedFormat: 'error' });
+                    reader.readAsArrayBuffer(file.slice(0, 32)); // Premiers 32 bytes
+                });
+            }
+
+            // Détection format vidéo par signature
+            detectVideoFormat(bytes) {
+                // MP4 (ftyp box)
+                if (bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+                    return 'MP4';
+                }
+                
+                // AVI (RIFF...AVI)
+                if (bytes.length >= 12 && 
+                    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                    bytes[8] === 0x41 && bytes[9] === 0x56 && bytes[10] === 0x49 && bytes[11] === 0x20) {
+                    return 'AVI';
+                }
+                
+                // WebM (EBML)
+                if (bytes.length >= 4 && bytes[0] === 0x1A && bytes[1] === 0x45 && bytes[2] === 0xDF && bytes[3] === 0xA3) {
+                    return 'WebM';
+                }
+                
+                // MOV/QuickTime
+                if (bytes.length >= 8 &&
+                    ((bytes[4] === 0x71 && bytes[5] === 0x74) ||
+                     (bytes[4] === 0x6D && bytes[5] === 0x6F && bytes[6] === 0x6F && bytes[7] === 0x76))) {
+                    return 'MOV';
+                }
+
+                // OGG/OGV
+                if (bytes.length >= 4 && bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+                    return 'OGV';
+                }
+
+                return 'unknown';
+            }
+
+            // Annonces ARIA pour lecteurs d'écran
+            announceToScreenReader(message) {
+                if (!this.ariaAnnouncer) {
+                    this.ariaAnnouncer = document.createElement('div');
+                    this.ariaAnnouncer.setAttribute('aria-live', 'polite');
+                    this.ariaAnnouncer.setAttribute('aria-atomic', 'true');
+                    this.ariaAnnouncer.className = 'fr-sr-only';
+                    document.body.appendChild(this.ariaAnnouncer);
+                }
+                
+                this.ariaAnnouncer.textContent = message;
+            }
+
+            // Reset interface amélioré
+            resetInterface() {
+                this.extractedFrames = [];
+                this.processBtn.disabled = true;
+                this.videoFile.value = '';
+                this.videoPreview.style.display = 'none';
+                this.results.style.display = 'none';
+                this.hideMessages();
+                this.clearDebugLog();
+                // Révoquer le blob URL
+                if (this._previewObjectURL) {
+                    URL.revokeObjectURL(this._previewObjectURL);
+                    this._previewObjectURL = null;
+                }
+                
+                // Reset upload zone
+                this.uploadZone.querySelector('h2').textContent = 'Sélectionnez votre vidéo';
+                this.uploadZone.querySelector('.fr-text--sm').textContent = 'Glissez-déposez votre fichier ou cliquez pour parcourir';
+                
+                this.showToast('Interface réinitialisée', 'info');
+                this.announceToScreenReader('Interface réinitialisée');
+            }
+
+            // Gestion pause/reprise
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                this.pauseBtn.setAttribute('aria-pressed', this.isPaused);
+
+                if (this.isPaused) {
+                    this.pauseBtnIcon.className = 'fr-icon-play-circle-line';
+                    this.pauseBtnText.textContent = 'Reprendre';
+                    this.showToast('Traitement mis en pause', 'info');
+                    this.announceToScreenReader('Traitement mis en pause');
+                } else {
+                    this.pauseBtnIcon.className = 'fr-icon-pause-circle-line';
+                    this.pauseBtnText.textContent = 'Pause';
+                    this.showToast('Traitement repris', 'info');
+                    this.announceToScreenReader('Traitement repris');
+                }
+            }
+
+        }
+
+        // Initialiser l'application
+        const videoExtractor = new VideoFrameExtractor();
+    </script>
+
+    <!-- DSFR JavaScript (nomodule pour compatibilité file://) -->
+    <script src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.11.2/dist/dsfr.nomodule.min.js" integrity="sha384-ug6aKCUGLkzDP7yCgw6w7eCpLhOWJGN6d6TgZAJOeiDrpD0xze7GsUtLdM4NZ6GC" crossorigin="anonymous"></script>
+
+    <!-- Fallback accordéon si DSFR JS absent -->
+    <script>
+        if (typeof window.dsfr !== 'function') {
+            document.querySelectorAll('.fr-accordion__btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const expanded = btn.getAttribute('aria-expanded') === 'true';
+                    const target = document.getElementById(btn.getAttribute('aria-controls'));
+                    btn.setAttribute('aria-expanded', !expanded);
+                    if (!expanded) {
+                        target.style.maxHeight = target.scrollHeight + 'px';
+                        target.style.visibility = 'visible';
+                        target.classList.add('fr-collapse--expanded');
+                    } else {
+                        target.style.maxHeight = '0px';
+                        target.style.visibility = 'hidden';
+                        target.classList.remove('fr-collapse--expanded');
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
