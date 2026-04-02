@@ -6,7 +6,7 @@ Outils autonomes pour le traitement des contenus numériques.
 
 ## Extracteur d'images vidéo
 
-**Fichier** : `video-extractor-local.html`
+**Fichier** : `extracteur-slides-video.html`
 
 Extrait automatiquement les diapositives uniques d'une vidéo au format JPG. Traitement 100 % local (Canvas API), aucune donnée envoyée.
 
@@ -27,7 +27,7 @@ Extrait automatiquement les diapositives uniques d'une vidéo au format JPG. Tra
 
 ### Utilisation
 
-1. Ouvrir `video-extractor-local.html` dans un navigateur (Chrome recommandé)
+1. Ouvrir `extracteur-slides-video.html` dans un navigateur (Chrome recommandé)
 2. Charger une vidéo par glisser-déposer ou en cliquant sur la zone d'upload
 3. Ajuster les paramètres si besoin (voir ci-dessous)
 4. Cliquer sur **Extraire**
